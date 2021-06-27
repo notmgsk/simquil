@@ -1,11 +1,11 @@
 //use std::fmt;
 
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use crate::{gates::QGate, matrix::instruction_matrix, wavefunction::Wavefunction};
 
 use quil::{
-    instruction::{Instruction, Qubit},
+    instruction::{Instruction, MemoryReference, Qubit},
     program::Program,
 };
 
@@ -13,8 +13,10 @@ use quil::{
 // 2. Method to transition state
 // 3. Method to apply a quantum gate to a state
 
+#[derive(Default)]
 pub struct VM {
     wavefunction: Wavefunction,
+    memory: HashMap<MemoryReference, u64>,
     program: quil::program::Program,
     pc: usize,
     n_qubits: u64,
@@ -26,8 +28,8 @@ impl VM {
         let mut vm = VM {
             wavefunction,
             program,
-            pc: 0,
             n_qubits,
+            ..Default::default()
         };
         vm.reset();
         vm
@@ -37,7 +39,9 @@ impl VM {
         self.wavefunction.apply(gate);
     }
 
-    pub fn measure(&mut self, qubit: &Qubit) {
+    pub fn measure(&mut self, qubit: &Qubit, target: MemoryReference) {}
+
+    pub fn measure_discard(&mut self, qubit: &Qubit) {
         match qubit {
             Qubit::Fixed(idx) => {
                 let r = rand::random::<f64>();
@@ -74,7 +78,7 @@ impl VM {
             }
             Instruction::Measurement { qubit, target } => match target {
                 Some(_) => todo!(),
-                None => self.measure(qubit),
+                None => self.measure_discard(qubit),
             },
             _ => todo!(),
         }

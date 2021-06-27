@@ -23,7 +23,7 @@ fn main() {
     println!("Input program:");
     println!("{}", program.to_string(true));
 
-    let mut vm = VM::new(2, program);
+    let mut vm = VM::new(9, program);
 
     vm.run();
     println!("{:?}", vm);
