@@ -9,7 +9,7 @@ use crate::{
 
 //pub type Wavefunction =
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Default)]
 pub struct Wavefunction {
     wfn: ndarray::Array1<Complex64>,
     n_qubits: u64,
@@ -34,16 +34,10 @@ impl Wavefunction {
 
     /// Compute the probability that the qubit is in an excited state.
     pub fn excited_state_probability(&self, qubit: &u64) -> f64 {
-        // |0>  |1>  |2>  |3>
-        // |00> |01> |10> |11>
-        //  a%   b%   c%   d%
-        //
-        // excited prob of q0 = b% + d%
-
         let mut cum_prob = 0f64;
 
         for i in 0..self.wfn.len() {
-            if (i as u64) & 2u64.pow((*qubit).try_into().unwrap()) == 1 {
+            if ((i as u64) >> *qubit) & 1 == 1 {
                 cum_prob += Wavefunction::probability(self.wfn[i])
             }
         }
@@ -91,7 +85,7 @@ impl fmt::Debug for Wavefunction {
                 i,
                 self.n_qubits.try_into().unwrap(),
                 amplitude,
-                (Wavefunction::probability(*amplitude) * 100.0)
+                Wavefunction::probability(*amplitude) * 100.0,
             )
             .ok();
         }))
@@ -111,47 +105,47 @@ mod tests {
     #[test]
     fn apply_1q_gates() {
         let mut wfn = Wavefunction::ground_state_wavefunction(1);
-        let gate = gates::i(0);
+        let gate = gates::standard::i(0);
         wfn.apply(&gate);
         assert_eq!(wfn, Wavefunction::ground_state_wavefunction(1));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(1);
-        let gate = gates::x(0);
+        let gate = gates::standard::x(0);
         wfn.apply(&gate);
         assert_eq!(wfn.wfn, arr1(&[C0, C1]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(2);
-        let gate = gates::x(0);
+        let gate = gates::standard::x(0);
         wfn.apply(&gate);
         assert_eq!(wfn.wfn, arr1(&[C0, C1, C0, C0]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(2);
-        let gate = gates::x(0);
+        let gate = gates::standard::x(0);
         wfn.apply(&gate);
         wfn.apply(&gate);
         assert_eq!(wfn.wfn, arr1(&[C1, C0, C0, C0]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(2);
-        let gate = gates::x(1);
+        let gate = gates::standard::x(1);
         wfn.apply(&gate);
         assert_eq!(wfn.wfn, arr1(&[C0, C0, C1, C0]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(2);
-        let gate0 = gates::x(0);
-        let gate1 = gates::x(1);
+        let gate0 = gates::standard::x(0);
+        let gate1 = gates::standard::x(1);
         wfn.apply(&gate0);
         wfn.apply(&gate1);
         assert_eq!(wfn.wfn, arr1(&[C0, C0, C0, C1]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(3);
-        let gate = gates::x(2);
+        let gate = gates::standard::x(2);
         wfn.apply(&gate);
         assert_eq!(wfn.wfn, arr1(&[C0, C0, C0, C0, C1, C0, C0, C0]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(3);
-        let gate0 = gates::x(0);
-        let gate1 = gates::x(1);
-        let gate2 = gates::x(2);
+        let gate0 = gates::standard::x(0);
+        let gate1 = gates::standard::x(1);
+        let gate2 = gates::standard::x(2);
         wfn.apply(&gate0);
         wfn.apply(&gate1);
         wfn.apply(&gate2);
@@ -161,13 +155,13 @@ mod tests {
     #[test]
     fn apply_adjacent_2q_gates() {
         let mut wfn = Wavefunction::ground_state_wavefunction(2);
-        let gate = gates::cnot(0, 1);
+        let gate = gates::standard::cnot(0, 1);
         wfn.apply(&gate);
         assert_eq!(wfn.wfn, arr1(&[C1, C0, C0, C0]));
 
         let mut wfn = Wavefunction::ground_state_wavefunction(2);
-        let x = gates::x(0);
-        let cnot = gates::cnot(0, 1);
+        let x = gates::standard::x(0);
+        let cnot = gates::standard::cnot(0, 1);
         wfn.apply(&x);
         wfn.apply(&cnot);
         assert_eq!(wfn.wfn, arr1(&[C0, C0, C0, C1]));
