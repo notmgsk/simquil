@@ -10,15 +10,27 @@ edition = "2018"
 structopt = "0.3.13"
 quil = { git = "ssh://git@github.com/rigetti/quil-rust.git", branch = "main" }
 num = "0.4.0"
-ndarray = "0.15.3"
+ndarray = { version = "0.15.3", features = ["blas"] }
+cblas-sys = { version = "0.1.4", optional = true, default-features = true }
+libc = { version = "0.2.82", optional = true }
+blas-src = { version = "0.8", features = ["openblas"] }
 num-complex = "0.4.0"
 rand = "0.8.4"
 lazy_static = "1.4.0"
 num-traits = "0.2.14"
 itertools = "0.10.1"
 
+[features]
+default = ["blas"]
+# Enable blas usage
+# See README for more instructions
+blas = ["cblas-sys", "libc"]
+
 [dev-dependencies]
 pretty_assertions = "0.7.2"
 
-# [patch."ssh://git@github.com/rigetti/quil-rust.git"]
-# quil = { path = "../../rigetti/quil-rust" }
+[patch."ssh://git@github.com/rigetti/quil-rust.git"]
+quil = { path = "../../rigetti/quil-rust" }
+
+[patch.crates-io]
+ndarray = { version = "0.15.3", features = ["blas"], path = "../ndarray" }

@@ -1,3 +1,5 @@
+extern crate blas_src;
+
 use quil::program::Program;
 use std::fs;
 use structopt::StructOpt;
