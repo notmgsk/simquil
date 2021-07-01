@@ -1,8 +1,13 @@
 use itertools::Itertools;
-use quil::program::Program;
+use quil::{
+    instruction::{Instruction, Qubit},
+    program::Program,
+};
 use std::{
+    collections::HashSet,
     fs,
     io::{self, Read},
+    str::FromStr,
 };
 use structopt::StructOpt;
 use vm::VM;
@@ -28,8 +33,10 @@ fn run(cli: Cli) {
         }
     };
     let program = Program::from_str(&quil).expect("bad program");
+    let used_qubits = qubits_in_program(&program);
+    let max_qubits_needed = used_qubits.iter().max().unwrap() + 1;
 
-    let mut vm = VM::new(2, program);
+    let mut vm = VM::new(max_qubits_needed, program);
 
     vm.run();
     println!("Wavefunction amplitudes:");
@@ -46,4 +53,40 @@ fn run(cli: Cli) {
 
 fn main() {
     run(Cli::from_args())
+}
+
+/// Get all the (numeric) qubits used in the program
+fn qubits_in_program(program: &Program) -> Vec<u64> {
+    let mut used_qubits: HashSet<u64> = HashSet::new();
+
+    program.instructions.iter().for_each(|i| match i {
+        Instruction::Gate { qubits, .. } => qubits.iter().for_each(|q| {
+            if let Qubit::Fixed(i) = q {
+                used_qubits.insert(*i);
+            }
+        }),
+        Instruction::Measurement { qubit, .. } => {
+            if let Qubit::Fixed(i) = qubit {
+                used_qubits.insert(*i);
+            }
+        }
+        Instruction::Reset { qubit } => {
+            if let Some(Qubit::Fixed(i)) = qubit {
+                used_qubits.insert(*i);
+            }
+        }
+        Instruction::Delay { qubits, .. } => qubits.iter().for_each(|q| {
+            if let Qubit::Fixed(i) = q {
+                used_qubits.insert(*i);
+            }
+        }),
+        Instruction::Fence { qubits } => qubits.iter().for_each(|q| {
+            if let Qubit::Fixed(i) = q {
+                used_qubits.insert(*i);
+            }
+        }),
+        _ => (),
+    });
+
+    used_qubits.into_iter().map(|a| a).collect()
 }
