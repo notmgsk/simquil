@@ -1,2 +1,29 @@
-H 0
-CNOT 0 1
+DECLARE Microsoft__Quantum__Qir__Emission__BellState__body__return_value INTEGER
+DECLARE PauliZ INTEGER
+DECLARE Microsoft__Quantum__Qir__Emission__BellState__Interop__0 INTEGER
+DECLARE PauliY INTEGER
+DECLARE Microsoft__Quantum__Intrinsic__M__body__return_value INTEGER
+DECLARE Microsoft__Quantum__Qir__Emission__BellState__body__2 INTEGER
+DECLARE PauliI INTEGER
+DECLARE Microsoft__Quantum__Qir__Emission__BellState__Interop__return_value INTEGER
+DECLARE Microsoft__Quantum__Intrinsic__M__body__5 INTEGER
+DECLARE PauliX INTEGER
+DECLARE nrIter INTEGER
+
+RZ(pi/2) 0
+RX(pi/2) 0
+RZ(pi/2) 0
+RZ(-2.499468762275958) 0
+RZ(-pi/2) 1
+RX(pi/2) 1
+RZ(0.9286724354810623) 1
+CZ 0 1
+RZ(-0.6421238913138343) 0
+RZ(-4.070265089070856) 1
+RX(pi/2) 1
+RZ(3*pi/2) 1
+MEASURE 0 Microsoft__Quantum__Intrinsic__M__body__5[0]
+MOVE Microsoft__Quantum__Intrinsic__M__body__return_value[0] Microsoft__Quantum__Intrinsic__M__body__5[0]
+MOVE Microsoft__Quantum__Qir__Emission__BellState__Interop__return_value[0] Microsoft__Quantum__Qir__Emission__BellState__Interop__0[0]
+MOVE Microsoft__Quantum__Qir__Emission__BellState__body__return_value[0] Microsoft__Quantum__Qir__Emission__BellState__body__2[0]
+HALT
