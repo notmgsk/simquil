@@ -1,32 +1,61 @@
 //use std::fmt;
 
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, hash::Hash, usize};
 
 use crate::{gates::QGate, matrix::instruction_matrix, wavefunction::Wavefunction};
 
 use quil::{
-    instruction::{Instruction, MemoryReference, Qubit},
-    program::Program,
+    instruction::{Instruction, MemoryReference, Qubit, ScalarType},
+    program::{MemoryRegion, Program},
 };
 
-// 1. Object with a quantum state
-// 2. Method to transition state
-// 3. Method to apply a quantum gate to a state
+#[derive(Debug)]
+pub enum MemoryType {
+    Bit(Vec<i64>),
+    Int(Vec<i64>),
+    Real(Vec<f64>),
+}
+
+impl MemoryType {
+    pub fn len(&self) -> usize {
+        match self {
+            MemoryType::Bit(b) => b.len(),
+            MemoryType::Int(i) => i.len(),
+            MemoryType::Real(r) => r.len(),
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct VM {
-    wavefunction: Wavefunction,
-    memory: HashMap<MemoryReference, u64>,
-    program: quil::program::Program,
-    pc: usize,
-    n_qubits: u64,
+    pub wavefunction: Wavefunction,
+    pub memory: HashMap<String, MemoryType>,
+    pub program: quil::program::Program,
+    pub pc: usize,
+    pub n_qubits: u64,
 }
 
 impl VM {
     pub fn new(n_qubits: u64, program: Program) -> Self {
         let wavefunction = Wavefunction::ground_state_wavefunction(n_qubits);
+        let memory: HashMap<String, MemoryType> = program
+            .memory_regions
+            .iter()
+            .map(|(k, v)| {
+                let mem = match v.size.data_type {
+                    ScalarType::Bit => MemoryType::Bit(vec![0; v.size.length as usize]),
+                    ScalarType::Integer => MemoryType::Int(vec![0; v.size.length as usize]),
+                    ScalarType::Real => MemoryType::Real(vec![0.0; v.size.length as usize]),
+                    ScalarType::Octet => todo!(),
+                };
+
+                (k.clone(), mem)
+            })
+            .into_iter()
+            .collect();
         let mut vm = VM {
             wavefunction,
+            memory,
             program,
             n_qubits,
             ..Default::default()
@@ -39,16 +68,30 @@ impl VM {
         self.wavefunction.apply(gate);
     }
 
-    pub fn measure(&mut self, qubit: &Qubit, target: MemoryReference) {}
+    pub fn measure(&mut self, qubit: &Qubit, target: MemoryReference) {
+        let memory_region = self.memory.get_mut(&target.name).unwrap();
+
+        match qubit {
+            Qubit::Fixed(idx) => {
+                let measured_value = self.wavefunction.measure(*idx);
+                match memory_region {
+                    MemoryType::Bit(b) => b[target.index as usize] = measured_value as i64,
+                    MemoryType::Int(i) => i[target.index as usize] = measured_value as i64,
+                    MemoryType::Real(r) => r[target.index as usize] = measured_value as f64,
+                }
+            }
+            Qubit::Variable(_) => todo!(),
+        }
+    }
 
     pub fn measure_discard(&mut self, qubit: &Qubit) {
         match qubit {
             Qubit::Fixed(idx) => {
                 let r = rand::random::<f64>();
-                let excited_prob = self.wavefunction.excited_state_probability(idx);
+                let excited_prob = self.wavefunction.excited_state_probability(idx.clone());
                 let collapsed_state = if r <= excited_prob { 1 } else { 0 };
                 self.wavefunction
-                    .collapse_wavefunction(idx, excited_prob, collapsed_state);
+                    .collapse_wavefunction(*idx, excited_prob, collapsed_state);
             }
             Qubit::Variable(_) => todo!(),
         }
@@ -77,10 +120,10 @@ impl VM {
                 self.apply(&matrix);
             }
             Instruction::Measurement { qubit, target } => match target {
-                Some(_) => todo!(),
+                Some(memref) => self.measure(qubit, memref.to_owned()),
                 None => self.measure_discard(qubit),
             },
-            _ => todo!(),
+            _ => (),
         }
 
         self.pc += 1;

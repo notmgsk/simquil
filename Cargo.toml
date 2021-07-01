@@ -16,9 +16,11 @@ rand = "0.8.4"
 lazy_static = "1.4.0"
 num-traits = "0.2.14"
 itertools = "0.10.1"
+slog = "2.7.0"
+slog-json = "2.3.0"
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
 
-# [patch."ssh://git@github.com/rigetti/quil-rust.git"]
-# quil = { path = "../../rigetti/quil-rust" }
+[patch."ssh://git@github.com/rigetti/quil-rust.git"]
+quil = { path = "../../rigetti/quil-rust" }
