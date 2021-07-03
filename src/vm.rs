@@ -64,10 +64,12 @@ impl VM {
         vm
     }
 
+    /// Apply a gate to the wavefunction
     pub fn apply(&mut self, gate: &QGate) {
         self.wavefunction.apply(gate);
     }
 
+    /// Measure a qubit storing the result into the target memory
     pub fn measure(&mut self, qubit: &Qubit, target: MemoryReference) {
         let memory_region = self.memory.get_mut(&target.name).unwrap();
 
@@ -84,11 +86,12 @@ impl VM {
         }
     }
 
+    /// Measure a qubit discarding the result
     pub fn measure_discard(&mut self, qubit: &Qubit) {
         match qubit {
             Qubit::Fixed(idx) => {
                 let r = rand::random::<f64>();
-                let excited_prob = self.wavefunction.excited_state_probability(idx.clone());
+                let excited_prob = self.wavefunction.excited_state_probability(*idx);
                 let collapsed_state = if r <= excited_prob { 1 } else { 0 };
                 self.wavefunction
                     .collapse_wavefunction(*idx, excited_prob, collapsed_state);
@@ -97,6 +100,7 @@ impl VM {
         }
     }
 
+    /// Step forward through program, applying the next instruction
     pub fn step(&mut self) {
         if self.pc >= self.program.instructions.len() {
             return;
@@ -129,12 +133,14 @@ impl VM {
         self.pc += 1;
     }
 
+    /// Run the program in its entirety
     pub fn run(&mut self) {
         while self.pc < self.program.instructions.len() {
             self.step();
         }
     }
 
+    /// Reset the VM to its initial state
     pub fn reset(&mut self) {
         self.pc = 0;
         self.wavefunction = Wavefunction::ground_state_wavefunction(self.n_qubits);
