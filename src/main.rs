@@ -88,5 +88,5 @@ fn qubits_in_program(program: &Program) -> Vec<u64> {
         _ => (),
     });
 
-    used_qubits.into_iter().map(|a| a).collect()
+    used_qubits.into_iter().collect()
 }
