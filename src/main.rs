@@ -52,6 +52,7 @@ fn run(cli: Cli) {
 }
 
 fn main() {
+    env_logger::init();
     run(Cli::from_args())
 }
 
@@ -65,15 +66,16 @@ fn qubits_in_program(program: &Program) -> Vec<u64> {
                 used_qubits.insert(*i);
             }
         }),
-        Instruction::Measurement { qubit, .. } => {
-            if let Qubit::Fixed(i) = qubit {
-                used_qubits.insert(*i);
-            }
+        Instruction::Measurement {
+            qubit: Qubit::Fixed(i),
+            ..
+        } => {
+            used_qubits.insert(*i);
         }
-        Instruction::Reset { qubit } => {
-            if let Some(Qubit::Fixed(i)) = qubit {
-                used_qubits.insert(*i);
-            }
+        Instruction::Reset {
+            qubit: Some(Qubit::Fixed(i)),
+        } => {
+            used_qubits.insert(*i);
         }
         Instruction::Delay { qubits, .. } => qubits.iter().for_each(|q| {
             if let Qubit::Fixed(i) = q {

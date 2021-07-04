@@ -1,5 +1,5 @@
 [package]
-name = "simqle"
+name = "simquil"
 version = "0.1.0"
 authors = ["Mark Skilbeck <mark.skilbeck@rigetti.com>"]
 edition = "2018"
@@ -16,8 +16,8 @@ rand = "0.8.4"
 lazy_static = "1.4.0"
 num-traits = "0.2.14"
 itertools = "0.10.1"
-slog = "2.7.0"
-slog-json = "2.3.0"
+log = "*"
+env_logger = "*"
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
