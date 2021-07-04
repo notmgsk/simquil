@@ -1,5 +1,5 @@
 [package]
-name = "simqle"
+name = "simquil"
 version = "0.1.0"
 authors = ["Mark Skilbeck <mark.skilbeck@rigetti.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.3.13"
-quil = { git = "ssh://git@github.com/rigetti/quil-rust.git", branch = "main" }
+quil = { git = "ssh://git@github.com/rigetti/quil-rust.git", branch = "semicolon" }
 num = "0.4.0"
 ndarray = "0.15.3"
 num-complex = "0.4.0"
@@ -16,9 +16,11 @@ rand = "0.8.4"
 lazy_static = "1.4.0"
 num-traits = "0.2.14"
 itertools = "0.10.1"
+log = "*"
+env_logger = "*"
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
 
-# [patch."ssh://git@github.com/rigetti/quil-rust.git"]
-# quil = { path = "../../rigetti/quil-rust" }
+#[patch."ssh://git@github.com/rigetti/quil-rust.git"]
+#quil = { path = "../../rigetti/quil-rust" }
