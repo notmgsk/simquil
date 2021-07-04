@@ -32,7 +32,7 @@ impl Wavefunction {
         amplitude.re * amplitude.re + amplitude.im * amplitude.im
     }
 
-    /// Compute the probability that the qubit is in an excited state.
+    /// Compute the probability that the qubit is in the state excited `|1>`
     pub fn excited_state_probability(&self, qubit: u64) -> f64 {
         let mut cum_prob = 0f64;
 
@@ -95,7 +95,7 @@ impl Wavefunction {
 
 impl fmt::Debug for Wavefunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(self.wfn.iter().enumerate().for_each(|(i, amplitude)| {
+        self.wfn.iter().enumerate().for_each(|(i, amplitude)| {
             let prob = Wavefunction::probability(*amplitude);
             if prob > 1e-10 {
                 writeln!(
@@ -108,7 +108,8 @@ impl fmt::Debug for Wavefunction {
                 )
                 .ok();
             }
-        }))
+        });
+        Ok(())
     }
 }
 
