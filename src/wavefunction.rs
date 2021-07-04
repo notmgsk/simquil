@@ -32,17 +32,34 @@ impl Wavefunction {
         amplitude.re * amplitude.re + amplitude.im * amplitude.im
     }
 
-    /// Compute the probability that the qubit is in an excited state.
-    pub fn excited_state_probability(&self, qubit: &u64) -> f64 {
+    /// Compute the probability that the qubit is in the state excited `|1>`
+    pub fn excited_state_probability(&self, qubit: u64) -> f64 {
         let mut cum_prob = 0f64;
 
         for i in 0..self.wfn.len() {
-            if ((i as u64) >> *qubit) & 1 == 1 {
+            if ((i as u64) >> qubit) & 1 == 1 {
                 cum_prob += Wavefunction::probability(self.wfn[i])
             }
         }
 
         cum_prob
+    }
+
+    pub fn sample(&self, qubit: u64) -> u64 {
+        let r = rand::random::<f64>();
+        let excited_prob = self.excited_state_probability(qubit);
+        if r <= excited_prob {
+            1
+        } else {
+            0
+        }
+    }
+
+    pub fn measure(&mut self, qubit: u64) -> u64 {
+        let excited_prob = self.excited_state_probability(qubit);
+        let collapsed_state = self.sample(qubit);
+        self.collapse_wavefunction(qubit, excited_prob, collapsed_state);
+        collapsed_state
     }
 
     /// Collapse the state of the wavefunction due to the measurement of a
@@ -54,7 +71,7 @@ impl Wavefunction {
     /// * `excited_probability` - The probability that `qubit` is in an excited
     ///   state in the wavefunction
     /// * `measured` - The result of the measurement (`0` or `1`)
-    pub fn collapse_wavefunction(&mut self, qubit: &u64, excited_probability: f64, measured: u64) {
+    pub fn collapse_wavefunction(&mut self, qubit: u64, excited_probability: f64, measured: u64) {
         let normalizer = if measured == 1 {
             1.0 / excited_probability.sqrt()
         } else {
@@ -78,17 +95,21 @@ impl Wavefunction {
 
 impl fmt::Debug for Wavefunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(self.wfn.iter().enumerate().for_each(|(i, amplitude)| {
-            writeln!(
-                f,
-                "|{0:01$b}>: {2:.6}, {3:.0}%",
-                i,
-                self.n_qubits.try_into().unwrap(),
-                amplitude,
-                Wavefunction::probability(*amplitude) * 100.0,
-            )
-            .ok();
-        }))
+        self.wfn.iter().enumerate().for_each(|(i, amplitude)| {
+            let prob = Wavefunction::probability(*amplitude);
+            if prob > 1e-10 {
+                writeln!(
+                    f,
+                    "|{0:01$b}>: {2:.6}, {3:.0}%",
+                    i,
+                    self.n_qubits.try_into().unwrap(),
+                    amplitude,
+                    prob * 100.0,
+                )
+                .ok();
+            }
+        });
+        Ok(())
     }
 }
 
