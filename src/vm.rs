@@ -1,6 +1,4 @@
-//use std::fmt;
-
-use std::{collections::HashMap, fmt, usize};
+use std::{collections::HashMap, fmt, io, usize};
 
 use crate::{gates::QGate, matrix::instruction_matrix, wavefunction::Wavefunction};
 
@@ -150,14 +148,19 @@ impl VM {
     }
 
     /// Step forward through program, applying the next instruction
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> Result<bool, io::Error> {
         if self.pc >= self.program.instructions.len() {
-            return;
+            return Ok(true);
         }
 
         let instruction = self.program.instructions[self.pc].to_owned();
 
         match &instruction {
+            Instruction::Halt {} => {
+                // Do nothing
+                return Ok(true);
+            }
+
             Instruction::Gate {
                 name: _,
                 parameters: _,
@@ -197,12 +200,17 @@ impl VM {
         }
 
         self.pc += 1;
+
+        Ok(false)
     }
 
     /// Run the program in its entirety
-    pub fn run(&mut self) {
-        while self.pc < self.program.instructions.len() {
-            self.step();
+    pub fn run(&mut self) -> Result<bool, io::Error> {
+        loop {
+            let done = self.step()?;
+            if done {
+                return Ok(true);
+            }
         }
     }
 
@@ -266,5 +274,18 @@ mod test {
             }
             mtype => panic!("expected MemoryType::BIT, got {:?}", mtype),
         }
+    }
+
+    #[test]
+    fn test_halt() {
+        let program = Program::from_str("HALT").unwrap();
+        let mut vm = VM::new(1, program);
+        vm.run();
+        assert_eq!(vm.pc, 0);
+
+        let program = Program::from_str("X 0; Y 0; HALT; Z 0").unwrap();
+        let mut vm = VM::new(1, program);
+        vm.run();
+        assert_eq!(vm.pc, 2)
     }
 }
