@@ -38,7 +38,7 @@ fn run(cli: Cli) {
 
     let mut vm = VM::new(max_qubits_needed, program);
 
-    vm.run();
+    vm.run().ok();
     println!("Wavefunction amplitudes:");
     println!();
     println!("{:?}", vm);
