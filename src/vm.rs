@@ -1,6 +1,6 @@
-use std::{collections::HashMap, fmt, io, usize};
+use std::{collections::HashMap, fmt, usize};
 
-use crate::{gates::QGate, matrix::instruction_matrix, wavefunction::Wavefunction};
+use thiserror::Error;
 
 use quil::instruction::ArithmeticOperand;
 use quil::{
@@ -8,10 +8,71 @@ use quil::{
     program::Program,
 };
 
+use crate::{gates::QGate, matrix::instruction_matrix, wavefunction::Wavefunction};
+
+#[derive(Error, Debug)]
+pub enum VMError {
+    /// Represents a failure due to providing an operand whose type is incompatible with the instruction
+    #[error("Invalid type for instruction operand {name}: expected {expected} but found {actual}")]
+    InvalidType {
+        name: String,
+        expected: String,
+        actual: String,
+    },
+
+    /// Represents a failure due to a mismatch between the expected type of a memory region and its actual type
+    #[error("Unexpected type for memory region: expected {expected} but found {actual}")]
+    UnexpectedMemoryRegionType { expected: String, actual: String },
+
+    /// Represents a failure due to a mismatch between the expected type of a literal value and its actual type
+    #[error("Unexpected literal type: expected {expected} but found {actual}")]
+    UnexpectedLiteralType { expected: String, actual: String },
+
+    /// Represents a failure due to referencing an undefined memory region
+    #[error("Undefined memory region {name:?}")]
+    UndefinedMemoryRegion { name: String },
+
+    /// Represents a failure due to using a qubit variable where a qubit index was expected
+    #[error("Unresolved qubit variable {name:?}")]
+    UnresolvedQubitVariable { name: String },
+
+    /// Represents a failure due to JUMPing to an undefined target
+    #[error("Undefined JUMP target {name:?}")]
+    UndefinedJumpTarget { name: String },
+
+    /// Represents a failure due to finding a duplicate LABEL
+    #[error("Duplicate LABEL {name:?}")]
+    DuplicateLabel { name: String },
+
+    #[error("Invalid destination for MOVE: expected a memory region but found {actual}")]
+    InvalidMoveDestination { actual: String },
+
+    #[error("Incompatible destination for EXCHANGE: due to source type, expected {right} but found {left}")]
+    IncompatibleExchange { left: String, right: String },
+
+    #[error("Invalid EXCHANGE: operands must be memory regions but found {left} and {right}")]
+    InvalidExchange { left: String, right: String },
+
+    #[error("Incompatible destination for MOVE: due to source type, expected {ssource} but found {destination}")]
+    IncompatibleLoad {
+        ssource: String,
+        destination: String,
+    },
+
+    #[error("Incompatible destination for STORE: due to source type, expected {ssource} but found {destination}")]
+    IncompatibleStore {
+        ssource: String,
+        destination: String,
+    },
+}
+
+// TODO VMError is nice but it doesn't show which instruction caused the error. Define a VMRunError
+// which wraps a VMError and includes the erroneous instruction.
+
 #[derive(Debug, Clone)]
 pub enum MemoryContainer {
     Bit(Vec<i64>),
-    Int(Vec<i64>),
+    Integer(Vec<i64>),
     Real(Vec<f64>),
 }
 
@@ -19,13 +80,58 @@ impl MemoryContainer {
     pub fn len(&self) -> usize {
         match self {
             MemoryContainer::Bit(b) => b.len(),
-            MemoryContainer::Int(i) => i.len(),
+            MemoryContainer::Integer(i) => i.len(),
             MemoryContainer::Real(r) => r.len(),
         }
     }
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn type_of(&self) -> String {
+        match self {
+            MemoryContainer::Bit(_) => "BIT".to_string(),
+            MemoryContainer::Integer(_) => "INTEGER".to_string(),
+            MemoryContainer::Real(_) => "REAL".to_string(),
+        }
+    }
+
+    pub fn bit(self) -> Result<Vec<i64>, VMError> {
+        match self {
+            MemoryContainer::Bit(v) | MemoryContainer::Integer(v) => Ok(v),
+            MemoryContainer::Real(_) => {
+                return Err(VMError::UnexpectedMemoryRegionType {
+                    expected: "BIT".to_string(),
+                    actual: self.type_of(),
+                })
+            }
+        }
+    }
+
+    pub fn integer(self) -> Result<Vec<i64>, VMError> {
+        match self {
+            MemoryContainer::Bit(b) => Ok(b),
+            MemoryContainer::Integer(i) => Ok(i),
+            MemoryContainer::Real(_) => {
+                return Err(VMError::UnexpectedMemoryRegionType {
+                    expected: "INTEGER".to_string(),
+                    actual: self.type_of(),
+                })
+            }
+        }
+    }
+
+    pub fn real(self) -> Result<Vec<f64>, VMError> {
+        match self {
+            MemoryContainer::Real(r) => Ok(r),
+            _ => {
+                return Err(VMError::UnexpectedMemoryRegionType {
+                    expected: "REAL".to_string(),
+                    actual: self.type_of(),
+                })
+            }
+        }
     }
 }
 
@@ -48,7 +154,9 @@ impl VM {
             .map(|(k, v)| {
                 let mem = match v.size.data_type {
                     ScalarType::Bit => MemoryContainer::Bit(vec![0; v.size.length as usize]),
-                    ScalarType::Integer => MemoryContainer::Int(vec![0; v.size.length as usize]),
+                    ScalarType::Integer => {
+                        MemoryContainer::Integer(vec![0; v.size.length as usize])
+                    }
                     ScalarType::Real => MemoryContainer::Real(vec![0.0; v.size.length as usize]),
                     ScalarType::Octet => todo!(),
                 };
@@ -74,24 +182,30 @@ impl VM {
     }
 
     /// Measure a qubit storing the result into the target memory
-    pub fn measure(&mut self, qubit: &Qubit, target: MemoryReference) {
-        let memory_region = self.memory.get_mut(&target.name).unwrap();
+    pub fn measure(&mut self, qubit: &Qubit, target: MemoryReference) -> Result<(), VMError> {
+        let memory_region =
+            self.memory
+                .get_mut(&target.name)
+                .ok_or(VMError::UndefinedMemoryRegion {
+                    name: target.name.clone(),
+                })?;
 
         match qubit {
             Qubit::Fixed(idx) => {
                 let measured_value = self.wavefunction.measure(*idx);
                 match memory_region {
                     MemoryContainer::Bit(b) => b[target.index as usize] = measured_value as i64,
-                    MemoryContainer::Int(i) => i[target.index as usize] = measured_value as i64,
+                    MemoryContainer::Integer(i) => i[target.index as usize] = measured_value as i64,
                     MemoryContainer::Real(r) => r[target.index as usize] = measured_value as f64,
                 }
+                Ok(())
             }
-            Qubit::Variable(_) => todo!(),
+            Qubit::Variable(v) => Err(VMError::UnresolvedQubitVariable { name: v.clone() }),
         }
     }
 
     /// Measure a qubit discarding the result
-    pub fn measure_discard(&mut self, qubit: &Qubit) {
+    pub fn measure_discard(&mut self, qubit: &Qubit) -> Result<(), VMError> {
         match qubit {
             Qubit::Fixed(idx) => {
                 let r = rand::random::<f64>();
@@ -99,8 +213,9 @@ impl VM {
                 let collapsed_state = if r <= excited_prob { 1 } else { 0 };
                 self.wavefunction
                     .collapse_wavefunction(*idx, excited_prob, collapsed_state);
+                Ok(())
             }
-            Qubit::Variable(_) => todo!(),
+            Qubit::Variable(v) => Err(VMError::UnresolvedQubitVariable { name: v.clone() }),
         }
     }
 
@@ -114,34 +229,46 @@ impl VM {
     }
 
     /// Jump to the target if the source memory value is equal to the condition value
-    fn jump_with_condition(&mut self, target: &str, source: &MemoryReference, condition: i64) {
+    fn jump_with_condition(
+        &mut self,
+        target: &str,
+        source: &MemoryReference,
+        condition: i64,
+    ) -> Result<(), VMError> {
         if let Some(MemoryContainer::Bit(bit)) = self.memory.get(&source.name) {
             let val = bit[source.index as usize];
 
             if val == condition {
-                self.jump(target)
+                self.jump(target)?
             }
         }
+
+        Ok(())
     }
 
     /// Jump (unconditionally) to the target
-    fn jump(&mut self, target: &str) {
+    fn jump(&mut self, target: &str) -> Result<(), VMError> {
         // Advance immediately if we know the target position
         if let Some(loc) = self.labels.get(target) {
             log::debug!("Jumping (immediately) to PC {}", *loc);
             self.pc = *loc;
-            return;
+            return Ok(());
         }
 
         // Otherwise, skip through instructions, noting each new
         // label until we find the target
         loop {
+            if self.pc >= self.program.instructions.len() {
+                return Err(VMError::UndefinedJumpTarget {
+                    name: target.to_string(),
+                });
+            }
             let instruction = &self.program.instructions[self.pc];
             if let Instruction::Label(label) = instruction {
                 self.labels.insert(label.clone(), self.pc);
                 if label == target {
                     log::debug!("Jumping (slowly) to PC {}", self.pc);
-                    break;
+                    return Ok(());
                 }
             }
             self.pc += 1
@@ -151,7 +278,7 @@ impl VM {
     /// Step forward through program, applying the next instruction
     ///
     /// A result of Ok(true) indicates that execution is halted, and Ok(false) indicates execution can continue
-    pub fn step(&mut self) -> Result<bool, io::Error> {
+    pub fn step(&mut self) -> Result<bool, VMError> {
         if self.pc >= self.program.instructions.len() {
             return Ok(true);
         }
@@ -160,85 +287,113 @@ impl VM {
 
         match &instruction {
             Instruction::Halt {} => {
-                // Do nothing
                 return Ok(true);
             }
 
-            Instruction::Gate {
-                name: _,
-                parameters: _,
-                qubits,
-                modifiers: _,
-            } => {
-                let _qubit = match qubits[0] {
-                    Qubit::Fixed(i) => i,
-                    Qubit::Variable(_) => todo!(),
-                };
+            Instruction::Gate { .. } => {
+                // TODO errors
                 let matrix = instruction_matrix(instruction);
                 self.apply(&matrix);
             }
 
             Instruction::Measurement { qubit, target } => match target {
-                Some(memref) => self.measure(qubit, memref.to_owned()),
-                None => self.measure_discard(qubit),
+                Some(memref) => self.measure(qubit, memref.to_owned())?,
+                None => self.measure_discard(qubit)?,
             },
 
-            Instruction::Jump { target } => self.jump(target),
+            Instruction::Jump { target } => self.jump(target)?,
 
             Instruction::JumpWhen { target, condition } => {
-                self.jump_with_condition(target, condition, 1)
+                self.jump_with_condition(target, condition, 1)?
             }
 
             Instruction::JumpUnless { target, condition } => {
-                self.jump_with_condition(target, condition, 0)
+                self.jump_with_condition(target, condition, 0)?
             }
 
             Instruction::Label(label) => {
-                self.labels.insert(label.clone(), self.pc);
+                if let Some(_) = self.labels.insert(label.clone(), self.pc) {
+                    return Err(VMError::DuplicateLabel {
+                        name: label.clone(),
+                    });
+                }
             }
 
             Instruction::Move {
                 destination,
                 source,
-            } => {
-                match destination {
-                    ArithmeticOperand::MemoryReference(mref) => {
-                        // TODO return an error
-                        let target = self
-                            .memory
-                            .get_mut(&mref.name)
-                            .expect("trying to MOVE into an undefined memory region");
-                        match target {
-                            MemoryContainer::Bit(b) => {
-                                b[mref.index as usize] = match source {
-                                    ArithmeticOperand::LiteralInteger(i) => *i,
-                                    d => {
-                                        panic!("expected integer operand for MOVE but got {:?}", d)
-                                    }
-                                }
-                            }
-                            MemoryContainer::Int(i) => {
-                                i[mref.index as usize] = match source {
-                                    ArithmeticOperand::LiteralInteger(i) => *i,
-                                    d => {
-                                        panic!("expected integer operand for MOVE but got {:?}", d)
-                                    }
-                                }
-                            }
-                            MemoryContainer::Real(r) => {
-                                r[mref.index as usize] = match source {
-                                    ArithmeticOperand::LiteralInteger(i) => *i as f64,
-                                    ArithmeticOperand::LiteralReal(r) => *r,
-                                    d => {
-                                        panic!("expected integer operand for MOVE but got {:?}", d)
-                                    }
+            } => match destination {
+                ArithmeticOperand::MemoryReference(mref) => {
+                    let mut dest_mcont =
+                        self.memory
+                            .remove(&mref.name)
+                            .ok_or(VMError::UndefinedMemoryRegion {
+                                name: mref.name.clone(),
+                            })?;
+
+                    match dest_mcont {
+                        MemoryContainer::Bit(ref mut b) => {
+                            b[mref.index as usize] = match source {
+                                ArithmeticOperand::LiteralInteger(i) => *i,
+                                ArithmeticOperand::MemoryReference(m) => self
+                                    .memory
+                                    .get(&m.name)
+                                    .ok_or(VMError::UndefinedMemoryRegion {
+                                        name: m.name.clone(),
+                                    })?
+                                    .clone()
+                                    .bit()?[m.index as usize],
+                                _ => {
+                                    return Err(VMError::UnexpectedLiteralType {
+                                        actual: "REAL".to_string(),
+                                        expected: "BIT".to_string(),
+                                    })
                                 }
                             }
                         }
+                        MemoryContainer::Integer(ref mut i) => {
+                            i[mref.index as usize] = match source {
+                                ArithmeticOperand::LiteralInteger(i) => *i,
+                                ArithmeticOperand::MemoryReference(m) => self
+                                    .memory
+                                    .get(&m.name)
+                                    .ok_or(VMError::UndefinedMemoryRegion {
+                                        name: m.name.clone(),
+                                    })?
+                                    .clone()
+                                    .integer()?[m.index as usize],
+                                _ => {
+                                    return Err(VMError::UnexpectedLiteralType {
+                                        actual: "REAL".to_string(),
+                                        expected: "INTEGER".to_string(),
+                                    })
+                                }
+                            }
+                        }
+                        MemoryContainer::Real(ref mut r) => {
+                            r[mref.index as usize] = match source {
+                                ArithmeticOperand::LiteralInteger(i) => *i as f64,
+                                ArithmeticOperand::LiteralReal(r) => *r,
+                                ArithmeticOperand::MemoryReference(m) => self
+                                    .memory
+                                    .get(&m.name)
+                                    .ok_or(VMError::UndefinedMemoryRegion {
+                                        name: m.name.clone(),
+                                    })?
+                                    .clone()
+                                    .real()?[m.index as usize],
+                            }
+                        }
                     }
-                    op => panic!("expected a memory reference but got {:}", op),
+
+                    self.memory.insert(mref.name.clone(), dest_mcont);
                 }
-            }
+                op => {
+                    return Err(VMError::InvalidMoveDestination {
+                        actual: op.to_string(),
+                    })
+                }
+            },
 
             Instruction::Exchange { left, right } => match (left, right) {
                 (
@@ -248,7 +403,11 @@ impl VM {
                     if left_mref.name == right_mref.name {
                         let left_index = left_mref.index;
                         let right_index = right_mref.index;
-                        let mem = self.memory.remove(&left_mref.name).unwrap();
+                        let mem = self.memory.remove(&left_mref.name).ok_or(
+                            VMError::UndefinedMemoryRegion {
+                                name: left_mref.name.clone(),
+                            },
+                        )?;
 
                         match mem {
                             MemoryContainer::Bit(mut b) => {
@@ -256,10 +415,10 @@ impl VM {
                                 self.memory
                                     .insert(left_mref.name.clone(), MemoryContainer::Bit(b));
                             }
-                            MemoryContainer::Int(mut i) => {
+                            MemoryContainer::Integer(mut i) => {
                                 i.swap(left_index as usize, right_index as usize);
                                 self.memory
-                                    .insert(left_mref.name.clone(), MemoryContainer::Int(i));
+                                    .insert(left_mref.name.clone(), MemoryContainer::Integer(i));
                             }
                             MemoryContainer::Real(mut r) => {
                                 r.swap(left_index as usize, right_index as usize);
@@ -268,42 +427,68 @@ impl VM {
                             }
                         }
                     } else {
-                        let left_memory = self.memory.remove(&left_mref.name).unwrap();
-                        let right_memory = self.memory.remove(&right_mref.name).unwrap();
+                        let left_memory = self.memory.remove(&left_mref.name).ok_or(
+                            VMError::UndefinedMemoryRegion {
+                                name: left_mref.name.clone(),
+                            },
+                        )?;
+                        let right_memory = self.memory.remove(&right_mref.name).ok_or(
+                            VMError::UndefinedMemoryRegion {
+                                name: right_mref.name.clone(),
+                            },
+                        )?;
 
                         match (left_memory, right_memory) {
-                                (MemoryContainer::Bit(mut left), MemoryContainer::Bit(mut right)) => {
-                                    let tmp = left[left_mref.index as usize];
-                                    left[left_mref.index as usize] = right[right_mref.index as usize];
-                                    right[right_mref.index as usize] = tmp;
+                            (MemoryContainer::Bit(mut left), MemoryContainer::Bit(mut right)) => {
+                                let tmp = left[left_mref.index as usize];
+                                left[left_mref.index as usize] = right[right_mref.index as usize];
+                                right[right_mref.index as usize] = tmp;
 
-                                    self.memory.insert(left_mref.name.clone(), MemoryContainer::Bit(left));
-                                    self.memory.insert(right_mref.name.clone(), MemoryContainer::Bit(right));
-                                },
-                                (MemoryContainer::Int(mut left), MemoryContainer::Int(mut right)) => {
-                                    let tmp = left[left_mref.index as usize];
-                                    left[left_mref.index as usize] = right[right_mref.index as usize];
-                                    right[right_mref.index as usize] = tmp;
-
-                                    self.memory.insert(left_mref.name.clone(), MemoryContainer::Int(left));
-                                    self.memory.insert(right_mref.name.clone(), MemoryContainer::Int(right));
-                                },
-                                (MemoryContainer::Real(mut left), MemoryContainer::Real(mut right)) => {
-                                    let tmp = left[left_mref.index as usize];
-                                    left[left_mref.index as usize] = right[right_mref.index as usize];
-                                    right[right_mref.index as usize] = tmp;
-
-                                    self.memory.insert(left_mref.name.clone(), MemoryContainer::Real(left));
-                                    self.memory.insert(right_mref.name.clone(), MemoryContainer::Real(right));
-                                },
-                                _ => panic!("cannot EXCHANGE memory locations that are not of the same type ({:?} and {:?})", left_mref, right_mref)
+                                self.memory
+                                    .insert(left_mref.name.clone(), MemoryContainer::Bit(left));
+                                self.memory
+                                    .insert(right_mref.name.clone(), MemoryContainer::Bit(right));
                             }
+                            (
+                                MemoryContainer::Integer(mut left),
+                                MemoryContainer::Integer(mut right),
+                            ) => {
+                                let tmp = left[left_mref.index as usize];
+                                left[left_mref.index as usize] = right[right_mref.index as usize];
+                                right[right_mref.index as usize] = tmp;
+
+                                self.memory
+                                    .insert(left_mref.name.clone(), MemoryContainer::Integer(left));
+                                self.memory.insert(
+                                    right_mref.name.clone(),
+                                    MemoryContainer::Integer(right),
+                                );
+                            }
+                            (MemoryContainer::Real(mut left), MemoryContainer::Real(mut right)) => {
+                                let tmp = left[left_mref.index as usize];
+                                left[left_mref.index as usize] = right[right_mref.index as usize];
+                                right[right_mref.index as usize] = tmp;
+
+                                self.memory
+                                    .insert(left_mref.name.clone(), MemoryContainer::Real(left));
+                                self.memory
+                                    .insert(right_mref.name.clone(), MemoryContainer::Real(right));
+                            }
+                            (left, right) => {
+                                return Err(VMError::IncompatibleExchange {
+                                    left: left.type_of(),
+                                    right: right.type_of(),
+                                })
+                            }
+                        }
                     }
                 }
-                (left, right) => panic!(
-                    "expected both operands to be memory references, got {:?} and {:?}",
-                    left, right
-                ),
+                (left, right) => {
+                    return Err(VMError::InvalidExchange {
+                        left: left.to_string(),
+                        right: right.to_string(),
+                    })
+                }
             },
 
             Instruction::Load {
@@ -311,71 +496,90 @@ impl VM {
                 source,
                 offset,
             } => {
-                let dest_memory = self
-                    .memory
-                    .remove(&destination.name)
-                    .expect("cannot LOAD into an undeclared memory region");
-                let source_memory = self
-                    .memory
-                    .get(source)
-                    .expect("cannot LOAD from an undeclared memory region");
-                let offset_memory = self
-                    .memory
-                    .get(&offset.name)
-                    .expect("cannot LOAD with offset using an undeclared memory region");
+                let dest_memory = self.memory.remove(&destination.name).ok_or(
+                    VMError::UndefinedMemoryRegion {
+                        name: destination.name.clone(),
+                    },
+                )?;
+                let source_memory =
+                    self.memory
+                        .get(source)
+                        .ok_or(VMError::UndefinedMemoryRegion {
+                            name: source.clone(),
+                        })?;
+                let offset_memory =
+                    self.memory
+                        .get(&offset.name)
+                        .ok_or(VMError::UndefinedMemoryRegion {
+                            name: offset.name.clone(),
+                        })?;
 
                 match (dest_memory, source_memory, offset_memory) {
                     (
                         MemoryContainer::Bit(mut dest_bits),
                         MemoryContainer::Bit(source_ints),
-                        MemoryContainer::Int(offset_ints),
+                        MemoryContainer::Integer(offset_ints),
                     ) => {
-                        dest_bits[destination.index as usize] = source_ints[offset_ints[offset.index as usize] as usize];
+                        dest_bits[destination.index as usize] =
+                            source_ints[offset_ints[offset.index as usize] as usize];
 
-                        self.memory.insert(destination.name.clone(),  MemoryContainer::Bit(dest_bits));
-                    },
+                        self.memory
+                            .insert(destination.name.clone(), MemoryContainer::Bit(dest_bits));
+                    }
                     (
-                        MemoryContainer::Int(mut dest_ints),
-                        MemoryContainer::Int(source_ints),
-                        MemoryContainer::Int(offset_ints),
+                        MemoryContainer::Integer(mut dest_ints),
+                        MemoryContainer::Integer(source_ints),
+                        MemoryContainer::Integer(offset_ints),
                     ) => {
-                        dest_ints[destination.index as usize] = source_ints[offset_ints[offset.index as usize] as usize];
+                        dest_ints[destination.index as usize] =
+                            source_ints[offset_ints[offset.index as usize] as usize];
 
-                        self.memory.insert(destination.name.clone(),  MemoryContainer::Int(dest_ints));
-                    },
+                        self.memory.insert(
+                            destination.name.clone(),
+                            MemoryContainer::Integer(dest_ints),
+                        );
+                    }
                     (
                         MemoryContainer::Real(mut dest_reals),
                         MemoryContainer::Real(source_reals),
-                        MemoryContainer::Int(offset_ints),
+                        MemoryContainer::Integer(offset_ints),
                     ) => {
-                        dest_reals[destination.index as usize] = source_reals[offset_ints[offset.index as usize] as usize];
+                        dest_reals[destination.index as usize] =
+                            source_reals[offset_ints[offset.index as usize] as usize];
 
-                        self.memory.insert(destination.name.clone(),  MemoryContainer::Real(dest_reals));
+                        self.memory
+                            .insert(destination.name.clone(), MemoryContainer::Real(dest_reals));
                     }
-                    load_instruction => panic!("LOAD destination and source must be of same type, and offset must be of type INTEGER: {:?}", load_instruction)
+                    (destination, source, _) => {
+                        return Err(VMError::IncompatibleLoad {
+                            destination: destination.type_of(),
+                            ssource: source.type_of(),
+                        })
+                    }
                 }
             }
 
             Instruction::Store {
                 destination,
                 offset,
-                source,
+                source: ssource,
             } => {
-                let dest_memory = self
-                    .memory
-                    .remove(destination)
-                    .expect("cannot STORE into undefined memory region");
-                let offset_memory = self
-                    .memory
-                    .get(&offset.name)
-                    .expect("cannot STORE using an undefined offset memory region");
+                let dest_memory =
+                    self.memory
+                        .remove(destination)
+                        .ok_or(VMError::UndefinedMemoryRegion {
+                            name: destination.clone(),
+                        })?;
+                let offset_memory =
+                    self.memory
+                        .get(&offset.name)
+                        .ok_or(VMError::UndefinedMemoryRegion {
+                            name: offset.name.clone(),
+                        })?;
+                let offset_ints = offset_memory.clone().integer()?;
 
-                match (dest_memory, offset_memory, source) {
-                    (
-                        MemoryContainer::Bit(mut dest_bits),
-                        MemoryContainer::Int(offset_ints),
-                        ArithmeticOperand::LiteralInteger(i),
-                    ) => {
+                match (dest_memory, ssource) {
+                    (MemoryContainer::Bit(mut dest_bits), ArithmeticOperand::LiteralInteger(i)) => {
                         let index = offset_ints[offset.index as usize] as usize;
                         dest_bits[index] = *i;
 
@@ -384,60 +588,57 @@ impl VM {
                     }
                     (
                         MemoryContainer::Bit(mut dest_bits),
-                        MemoryContainer::Int(offset_ints),
                         ArithmeticOperand::MemoryReference(mref),
                     ) => {
-                        let source_memory = self
-                            .memory
-                            .get(&mref.name)
-                            .expect("cannot STORE using an undefined source memory region");
+                        let source_memory =
+                            self.memory
+                                .get(&mref.name)
+                                .ok_or(VMError::UndefinedMemoryRegion {
+                                    name: mref.name.clone(),
+                                })?;
                         match source_memory {
                             MemoryContainer::Bit(source_bits) => {
                                 let index = offset_ints[offset.index as usize] as usize;
                                 dest_bits[index] = source_bits[mref.index as usize];
                             }
-                            sref => panic!("oof"),
+                            sref => {
+                                return Err(VMError::IncompatibleStore {
+                                    ssource: sref.type_of(),
+                                    destination: "BIT".to_string(),
+                                })
+                            }
                         }
 
                         self.memory
                             .insert(destination.clone(), MemoryContainer::Bit(dest_bits));
                     }
                     (
-                        MemoryContainer::Int(mut dest_ints),
-                        MemoryContainer::Int(offset_ints),
+                        MemoryContainer::Integer(mut dest_ints),
                         ArithmeticOperand::LiteralInteger(i),
                     ) => {
                         let index = offset_ints[offset.index as usize] as usize;
                         dest_ints[index] = *i;
 
                         self.memory
-                            .insert(destination.clone(), MemoryContainer::Int(dest_ints));
+                            .insert(destination.clone(), MemoryContainer::Integer(dest_ints));
                     }
                     (
-                        MemoryContainer::Int(mut dest_ints),
-                        MemoryContainer::Int(offset_ints),
+                        MemoryContainer::Integer(mut dest_ints),
                         ArithmeticOperand::MemoryReference(mref),
                     ) => {
-                        let source_memory = self
-                            .memory
-                            .get(&mref.name)
-                            .expect("cannot STORE using an undefined source memory region");
-                        match source_memory {
-                            MemoryContainer::Int(source_ints) => {
-                                let index = offset_ints[offset.index as usize] as usize;
-                                dest_ints[index] = source_ints[mref.index as usize];
-                            }
-                            sref => panic!("oof"),
-                        }
-
+                        let source_memory =
+                            self.memory
+                                .get(&mref.name)
+                                .ok_or(VMError::UndefinedMemoryRegion {
+                                    name: mref.name.clone(),
+                                })?;
+                        let source_ints = source_memory.clone().integer()?;
+                        let index = offset_ints[offset.index as usize] as usize;
+                        dest_ints[index] = source_ints[mref.index as usize];
                         self.memory
-                            .insert(destination.clone(), MemoryContainer::Int(dest_ints));
+                            .insert(destination.clone(), MemoryContainer::Integer(dest_ints));
                     }
-                    (
-                        MemoryContainer::Real(mut dest_reals),
-                        MemoryContainer::Int(offset_ints),
-                        ArithmeticOperand::LiteralReal(r),
-                    ) => {
+                    (MemoryContainer::Real(mut dest_reals), ArithmeticOperand::LiteralReal(r)) => {
                         let index = offset_ints[offset.index as usize] as usize;
                         dest_reals[index] = *r;
 
@@ -446,25 +647,32 @@ impl VM {
                     }
                     (
                         MemoryContainer::Real(mut dest_reals),
-                        MemoryContainer::Int(offset_ints),
                         ArithmeticOperand::MemoryReference(mref),
                     ) => {
-                        let source_memory = self
-                            .memory
-                            .get(&mref.name)
-                            .expect("cannot STORE using an undefined source memory region");
-                        match source_memory {
-                            MemoryContainer::Real(source_reals) => {
-                                let index = offset_ints[offset.index as usize] as usize;
-                                dest_reals[index] = source_reals[mref.index as usize];
-                            }
-                            sref => panic!("oof"),
-                        }
-
+                        let source_memory =
+                            self.memory
+                                .get(&mref.name)
+                                .ok_or(VMError::UndefinedMemoryRegion {
+                                    name: mref.name.clone(),
+                                })?;
+                        let source_reals = source_memory.clone().real()?;
+                        let index = offset_ints[offset.index as usize] as usize;
+                        dest_reals[index] = source_reals[mref.index as usize];
                         self.memory
                             .insert(destination.clone(), MemoryContainer::Real(dest_reals));
                     }
-                    tup => panic!("{:?}", tup),
+                    (dest, ArithmeticOperand::LiteralReal(_)) => {
+                        return Err(VMError::IncompatibleStore {
+                            ssource: "REAL".to_string(),
+                            destination: dest.type_of(),
+                        })
+                    }
+                    (dest, ArithmeticOperand::LiteralInteger(_)) => {
+                        return Err(VMError::IncompatibleStore {
+                            ssource: "INTEGER".to_string(),
+                            destination: dest.type_of(),
+                        })
+                    }
                 }
             }
             instruction => {
@@ -478,7 +686,7 @@ impl VM {
     }
 
     /// Run the program in its entirety
-    pub fn run(&mut self) -> Result<bool, io::Error> {
+    pub fn run(&mut self) -> Result<bool, VMError> {
         loop {
             let done = self.step()?;
             if done {
@@ -674,7 +882,7 @@ mod test {
         vm.run();
 
         match vm.memory.get("a").expect("expected memory region named a") {
-            MemoryContainer::Int(r) => {
+            MemoryContainer::Integer(r) => {
                 assert_eq!(r.len(), 2);
                 assert_eq!(r[1], 1);
             }
@@ -689,7 +897,7 @@ mod test {
         vm.run();
 
         match vm.memory.get("a").expect("expected memory region named a") {
-            MemoryContainer::Int(r) => {
+            MemoryContainer::Integer(r) => {
                 assert_eq!(r.len(), 2);
                 assert_eq!(r[1], 1);
             }
