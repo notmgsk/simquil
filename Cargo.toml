@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.3.13"
-quil = { git = "ssh://git@github.com/rigetti/quil-rust.git", branch = "semicolon" }
+quil = { git = "https://github.com/rigetti/quil-rust.git", tag = "v0.2.1" }
 num = "0.4.0"
 ndarray = "0.15.3"
 num-complex = "0.4.0"
@@ -18,9 +18,8 @@ num-traits = "0.2.14"
 itertools = "0.10.1"
 log = "*"
 env_logger = "*"
+thiserror = "1.0.24"
+anyhow = "1.0.39"
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
-
-#[patch."ssh://git@github.com/rigetti/quil-rust.git"]
-#quil = { path = "../../rigetti/quil-rust" }
