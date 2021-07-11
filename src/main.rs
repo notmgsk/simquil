@@ -1,8 +1,4 @@
 use itertools::Itertools;
-use quil::{
-    instruction::{Instruction, Qubit},
-    program::Program,
-};
 use std::{
     collections::HashSet,
     fs,
@@ -10,6 +6,15 @@ use std::{
     str::FromStr,
 };
 use structopt::StructOpt;
+
+use anyhow::Result;
+use thiserror::Error;
+
+use quil::{
+    instruction::{Instruction, Qubit},
+    program::Program,
+};
+
 use vm::VM;
 
 pub mod gates;
@@ -17,12 +22,18 @@ pub mod matrix;
 pub mod vm;
 pub mod wavefunction;
 
+#[derive(Error, Debug)]
+pub enum SimquilError {
+    #[error("failed to execute program")]
+    ExecutionError(#[from] vm::VMError),
+}
+
 #[derive(StructOpt)]
 struct Cli {
     quil_file: Option<String>,
 }
 
-fn run(cli: Cli) {
+fn run(cli: Cli) -> Result<()> {
     let quil = match cli.quil_file {
         Some(path) => fs::read_to_string(path).expect("bad read"),
         None => {
@@ -38,7 +49,7 @@ fn run(cli: Cli) {
 
     let mut vm = VM::new(max_qubits_needed, program);
 
-    vm.run().ok();
+    vm.run().map_err(|s| SimquilError::ExecutionError(s))?;
     println!("Wavefunction amplitudes:");
     println!();
     println!("{:?}", vm);
@@ -49,10 +60,13 @@ fn run(cli: Cli) {
         .iter()
         .sorted_by_key(|x| x.0)
         .for_each(|(mref, data)| println!("{}[0..{}]:\t {:?}", mref, data.len(), data));
+
+    Ok(())
 }
 
-fn main() {
+fn main() -> Result<()> {
     env_logger::init();
+
     run(Cli::from_args())
 }
 
