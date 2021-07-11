@@ -49,7 +49,7 @@ fn run(cli: Cli) -> Result<()> {
 
     let mut vm = VM::new(max_qubits_needed, program);
 
-    vm.run().map_err(|s| SimquilError::ExecutionError(s))?;
+    vm.run().map_err(SimquilError::ExecutionError)?;
     println!("Wavefunction amplitudes:");
     println!();
     println!("{:?}", vm);
