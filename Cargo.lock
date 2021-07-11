@@ -235,9 +235,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.97"
+version = "0.2.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
+checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
 
 [[package]]
 name = "log"
@@ -446,8 +446,8 @@ dependencies = [
 
 [[package]]
 name = "quil"
-version = "0.1.0"
-source = "git+ssh://git@github.com/rigetti/quil-rust.git?branch=semicolon-and-more#18793970b118faa299cc91bcfbd46afbffb5d76c"
+version = "0.2.1"
+source = "git+https://github.com/rigetti/quil-rust.git?tag=v0.2.1#d2374584cdf13868d8c3a5fa09d620e3e2f3675e"
 dependencies = [
  "indexmap",
  "lexical",
