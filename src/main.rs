@@ -45,7 +45,10 @@ fn run(cli: Cli) -> Result<()> {
     };
     let program = Program::from_str(&quil).expect("bad program");
     let used_qubits = qubits_in_program(&program);
-    let max_qubits_needed = used_qubits.iter().max().unwrap() + 1;
+    let max_qubits_needed = match used_qubits.iter().max() {
+        None => 0,
+        Some(n) => *n + 1,
+    };
 
     let mut vm = VM::new(max_qubits_needed, program);
 
