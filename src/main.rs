@@ -74,34 +74,34 @@ fn main() -> Result<()> {
 }
 
 /// Get all the (numeric) qubits used in the program
-fn qubits_in_program(program: &Program) -> Vec<u64> {
-    let mut used_qubits: HashSet<u64> = HashSet::new();
+fn qubits_in_program(program: &Program) -> Vec<usize> {
+    let mut used_qubits: HashSet<usize> = HashSet::new();
 
     program.instructions.iter().for_each(|i| match i {
         Instruction::Gate { qubits, .. } => qubits.iter().for_each(|q| {
             if let Qubit::Fixed(i) = q {
-                used_qubits.insert(*i);
+                used_qubits.insert(*i as usize);
             }
         }),
         Instruction::Measurement {
             qubit: Qubit::Fixed(i),
             ..
         } => {
-            used_qubits.insert(*i);
+            used_qubits.insert(*i as usize);
         }
         Instruction::Reset {
             qubit: Some(Qubit::Fixed(i)),
         } => {
-            used_qubits.insert(*i);
+            used_qubits.insert(*i as usize);
         }
         Instruction::Delay { qubits, .. } => qubits.iter().for_each(|q| {
             if let Qubit::Fixed(i) = q {
-                used_qubits.insert(*i);
+                used_qubits.insert(*i as usize);
             }
         }),
         Instruction::Fence { qubits } => qubits.iter().for_each(|q| {
             if let Qubit::Fixed(i) = q {
-                used_qubits.insert(*i);
+                used_qubits.insert(*i as usize);
             }
         }),
         _ => (),

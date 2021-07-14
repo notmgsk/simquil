@@ -78,11 +78,11 @@ pub struct VM {
     pub program: quil::program::Program,
     pub pc: usize,
     labels: HashMap<String, usize>,
-    pub n_qubits: u64,
+    pub n_qubits: usize,
 }
 
 impl VM {
-    pub fn new(n_qubits: u64, program: Program) -> Self {
+    pub fn new(n_qubits: usize, program: Program) -> Self {
         let wavefunction = Wavefunction::ground_state_wavefunction(n_qubits);
         let memory: HashMap<String, MemoryContainer> = program
             .memory_regions
@@ -128,7 +128,7 @@ impl VM {
 
         match qubit {
             Qubit::Fixed(idx) => {
-                let measured_value = self.wavefunction.measure(*idx);
+                let measured_value = self.wavefunction.measure(*idx as usize);
                 match memory_region {
                     MemoryContainer::Bit(b) => b[target.index as usize] = measured_value as i64,
                     MemoryContainer::Integer(i) => i[target.index as usize] = measured_value as i64,
@@ -145,10 +145,13 @@ impl VM {
         match qubit {
             Qubit::Fixed(idx) => {
                 let r = rand::random::<f64>();
-                let excited_prob = self.wavefunction.excited_state_probability(*idx);
+                let excited_prob = self.wavefunction.excited_state_probability(*idx as usize);
                 let collapsed_state = if r <= excited_prob { 1 } else { 0 };
-                self.wavefunction
-                    .collapse_wavefunction(*idx, excited_prob, collapsed_state);
+                self.wavefunction.collapse_wavefunction(
+                    *idx as usize,
+                    excited_prob,
+                    collapsed_state,
+                );
                 Ok(())
             }
             Qubit::Variable(v) => Err(VMError::UnresolvedQubitVariable { name: v.clone() }),
