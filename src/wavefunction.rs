@@ -12,16 +12,16 @@ use crate::{
 #[derive(PartialEq, Default)]
 pub struct Wavefunction {
     wfn: ndarray::Array1<Complex64>,
-    n_qubits: u64,
+    n_qubits: usize,
 }
 
 impl Wavefunction {
-    pub fn new(n_qubits: u64) -> Self {
+    pub fn new(n_qubits: usize) -> Self {
         Wavefunction::ground_state_wavefunction(n_qubits)
     }
 
     /// Create a ground state wavefunction |00..00> for n qubits,
-    pub fn ground_state_wavefunction(n: u64) -> Self {
+    pub fn ground_state_wavefunction(n: usize) -> Self {
         let mut wfn = ndarray::Array::zeros(pow(2, n.try_into().unwrap()));
         wfn[0] = C1;
 
@@ -33,11 +33,11 @@ impl Wavefunction {
     }
 
     /// Compute the probability that the qubit is in the state excited `|1>`
-    pub fn excited_state_probability(&self, qubit: u64) -> f64 {
+    pub fn excited_state_probability(&self, qubit: usize) -> f64 {
         let mut cum_prob = 0f64;
 
         for i in 0..self.wfn.len() {
-            if ((i as u64) >> qubit) & 1 == 1 {
+            if ((i as usize) >> qubit) & 1 == 1 {
                 cum_prob += Wavefunction::probability(self.wfn[i])
             }
         }
@@ -45,7 +45,7 @@ impl Wavefunction {
         cum_prob
     }
 
-    pub fn sample(&self, qubit: u64) -> u64 {
+    pub fn sample(&self, qubit: usize) -> usize {
         let r = rand::random::<f64>();
         let excited_prob = self.excited_state_probability(qubit);
         if r <= excited_prob {
@@ -55,7 +55,7 @@ impl Wavefunction {
         }
     }
 
-    pub fn measure(&mut self, qubit: u64) -> u64 {
+    pub fn measure(&mut self, qubit: usize) -> usize {
         let excited_prob = self.excited_state_probability(qubit);
         let collapsed_state = self.sample(qubit);
         self.collapse_wavefunction(qubit, excited_prob, collapsed_state);
@@ -71,7 +71,12 @@ impl Wavefunction {
     /// * `excited_probability` - The probability that `qubit` is in an excited
     ///   state in the wavefunction
     /// * `measured` - The result of the measurement (`0` or `1`)
-    pub fn collapse_wavefunction(&mut self, qubit: u64, excited_probability: f64, measured: u64) {
+    pub fn collapse_wavefunction(
+        &mut self,
+        qubit: usize,
+        excited_probability: f64,
+        measured: usize,
+    ) {
         let normalizer = if measured == 1 {
             1.0 / excited_probability.sqrt()
         } else {
@@ -79,7 +84,7 @@ impl Wavefunction {
         };
 
         for i in 0..self.wfn.len() {
-            if 1 - measured == ((i as u64) >> qubit) & 1 {
+            if 1 - measured == (i >> qubit) & 1 {
                 self.wfn[i] = C0
             } else {
                 self.wfn[i] = normalizer * self.wfn[i]
@@ -102,7 +107,7 @@ impl fmt::Debug for Wavefunction {
                     f,
                     "|{0:01$b}>: {2:.6}, {3:.0}%",
                     i,
-                    self.n_qubits.try_into().unwrap(),
+                    self.n_qubits,
                     amplitude,
                     prob * 100.0,
                 )

@@ -29,7 +29,7 @@ pub fn instruction_matrix(instruction: Instruction) -> QGate {
             qubits
                 .iter()
                 .map(|q| match q {
-                    Qubit::Fixed(i) => *i,
+                    Qubit::Fixed(i) => *i as usize,
                     Qubit::Variable(_) => todo!(),
                 })
                 .collect(),
