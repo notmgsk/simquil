@@ -446,8 +446,8 @@ dependencies = [
 
 [[package]]
 name = "quil"
-version = "0.2.1"
-source = "git+https://github.com/rigetti/quil-rust.git?tag=v0.2.1#d2374584cdf13868d8c3a5fa09d620e3e2f3675e"
+version = "0.2.3"
+source = "git+https://github.com/rigetti/quil-rust.git?tag=v0.2.3#78cff3d2c5ce1b4bccc69aa49e6fa2c138ec7622"
 dependencies = [
  "indexmap",
  "lexical",
@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "simquil"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "env_logger",
