@@ -231,7 +231,7 @@ impl VM {
 
             Instruction::Gate { .. } => {
                 // TODO errors
-                let matrix = instruction_matrix(instruction);
+                let matrix = instruction_matrix(instruction)?;
                 self.apply(&matrix);
             }
 

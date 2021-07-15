@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.3.13"
-quil = { git = "https://github.com/rigetti/quil-rust.git", tag = "v0.2.3" }
+quil = { git = "https://github.com/rigetti/quil-rust.git", branch = "derive-error-for-evaluation-error" }
 num = "0.4.0"
 ndarray = "0.15.3"
 num-complex = "0.4.0"

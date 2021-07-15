@@ -1,4 +1,5 @@
 use thiserror::Error;
+use crate::matrix::InstructionMatrixError;
 
 #[derive(Error, Debug)]
 pub enum VMError {
@@ -54,6 +55,9 @@ pub enum VMError {
         ssource: String,
         destination: String,
     },
+
+    #[error("Error when creating matrix")]
+    MatrixError(#[from] InstructionMatrixError),
 }
 
 // TODO VMError is nice but it doesn't show which instruction caused the error. Define a VMRunError
