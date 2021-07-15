@@ -1,13 +1,14 @@
-use std::{convert::TryInto, fmt};
-
 use num::{complex::Complex64, pow};
+use std::fmt;
+use thiserror::Error;
 
 use crate::{
     gates::QGate,
     matrix::{C0, C1},
 };
 
-//pub type Wavefunction =
+#[derive(Error, Debug)]
+pub enum WavefunctionError {}
 
 #[derive(PartialEq, Default)]
 pub struct Wavefunction {
@@ -22,7 +23,7 @@ impl Wavefunction {
 
     /// Create a ground state wavefunction |00..00> for n qubits,
     pub fn ground_state_wavefunction(n: usize) -> Self {
-        let mut wfn = ndarray::Array::zeros(pow(2, n.try_into().unwrap()));
+        let mut wfn = ndarray::Array::zeros(pow(2, n));
         wfn[0] = C1;
 
         Wavefunction { wfn, n_qubits: n }

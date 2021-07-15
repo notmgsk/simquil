@@ -3,11 +3,9 @@ pub mod standard;
 use ndarray::{Array, Array2};
 use num::complex::Complex64;
 
-use std::convert::TryInto;
-
 use crate::gates::standard::{ccnot, cnot, cz, h, i, rx, ry, rz, swap, x, z};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct QGate {
     matrix: Array2<Complex64>,
     qubits: Vec<usize>,
@@ -37,7 +35,8 @@ pub fn gate_matrix(name: String, params: Vec<f64>, qubits: Vec<usize>) -> QGate 
 impl QGate {
     fn lift_adjacent(&self, i: usize, n_qubits: usize) -> Array2<Complex64> {
         let gate_size = self.qubits.len();
-        let bottom = Array::eye(2u64.pow(i.try_into().unwrap()).try_into().unwrap());
+        let n = num::pow(2, i);
+        let bottom = Array::eye(n);
         let top =
             Array::eye(2u64.pow((n_qubits as u32) - (i as u32) - (gate_size as u32)) as usize);
 
