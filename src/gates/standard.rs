@@ -4,35 +4,35 @@ use crate::matrix::{C0, C1, I1};
 
 use super::QGate;
 
-pub fn i(q: u64) -> QGate {
+pub fn i(q: usize) -> QGate {
     QGate {
         matrix: arr2(&[[C1, C0], [C0, C1]]),
         qubits: [q].to_vec(),
     }
 }
 
-pub fn x(q: u64) -> QGate {
+pub fn x(q: usize) -> QGate {
     QGate {
         matrix: arr2(&[[C0, C1], [C1, C0]]),
         qubits: [q].to_vec(),
     }
 }
 
-pub fn y(q: u64) -> QGate {
+pub fn y(q: usize) -> QGate {
     QGate {
         matrix: arr2(&[[C0, -I1], [I1, C0]]),
         qubits: [q].to_vec(),
     }
 }
 
-pub fn z(q: u64) -> QGate {
+pub fn z(q: usize) -> QGate {
     QGate {
         matrix: arr2(&[[C1, C0], [C0, -C1]]),
         qubits: [q].to_vec(),
     }
 }
 
-pub fn h(q: u64) -> QGate {
+pub fn h(q: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [1.0 / 2.0f64.sqrt() + C0, 1.0 / 2.0f64.sqrt() + C0],
@@ -42,7 +42,7 @@ pub fn h(q: u64) -> QGate {
     }
 }
 
-pub fn rx(param: f64, q: u64) -> QGate {
+pub fn rx(param: f64, q: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [(param / 2.0).cos() + C0, -I1 * (param / 2.0).sin()],
@@ -52,7 +52,7 @@ pub fn rx(param: f64, q: u64) -> QGate {
     }
 }
 
-pub fn ry(param: f64, q: u64) -> QGate {
+pub fn ry(param: f64, q: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [(param / 2.0).cos() + C0, -(param / 2.0).sin() + C0],
@@ -62,7 +62,7 @@ pub fn ry(param: f64, q: u64) -> QGate {
     }
 }
 
-pub fn rz(param: f64, q: u64) -> QGate {
+pub fn rz(param: f64, q: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [(-param / 2.0).cos() + I1 * (-param / 2.0).sin(), C0],
@@ -72,7 +72,7 @@ pub fn rz(param: f64, q: u64) -> QGate {
     }
 }
 
-pub fn cz(control: u64, target: u64) -> QGate {
+pub fn cz(control: usize, target: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [C1, C0, C0, C0],
@@ -84,7 +84,7 @@ pub fn cz(control: u64, target: u64) -> QGate {
     }
 }
 
-pub fn cnot(control: u64, target: u64) -> QGate {
+pub fn cnot(control: usize, target: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [C1, C0, C0, C0],
@@ -96,7 +96,7 @@ pub fn cnot(control: u64, target: u64) -> QGate {
     }
 }
 
-pub fn swap(q0: u64, q1: u64) -> QGate {
+pub fn swap(q0: usize, q1: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [C1, C0, C0, C0],
@@ -108,7 +108,7 @@ pub fn swap(q0: u64, q1: u64) -> QGate {
     }
 }
 
-pub fn ccnot(control0: u64, control1: u64, target: u64) -> QGate {
+pub fn ccnot(control0: usize, control1: usize, target: usize) -> QGate {
     QGate {
         matrix: arr2(&[
             [C1, C0, C0, C0, C0, C0, C0, C0],

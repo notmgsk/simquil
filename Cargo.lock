@@ -446,8 +446,8 @@ dependencies = [
 
 [[package]]
 name = "quil"
-version = "0.2.1"
-source = "git+https://github.com/rigetti/quil-rust.git?tag=v0.2.1#d2374584cdf13868d8c3a5fa09d620e3e2f3675e"
+version = "0.2.3"
+source = "git+https://github.com/rigetti/quil-rust.git?branch=derive-error-for-evaluation-error#08a5e2f48ff157e9a77534c881a81d01da1a2e68"
 dependencies = [
  "indexmap",
  "lexical",
@@ -455,6 +455,7 @@ dependencies = [
  "num-complex 0.3.1",
  "petgraph",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -563,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "simquil"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "env_logger",
