@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use num::complex::Complex64;
+use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::gates::{gate_matrix, QGate};
 
-use quil::instruction::{Instruction, Qubit};
+use crate::matrix::InstructionMatrixError::{InvalidInstruction, InvalidQubit};
 use quil::expression::EvaluationError;
-use crate::matrix::InstructionMatrixError::{InvalidQubit, InvalidInstruction};
+use quil::instruction::{Instruction, Qubit};
 
 pub const C0: Complex64 = Complex64::new(0.0, 0.0);
 pub const C1: Complex64 = Complex64::new(1.0, 0.0);
@@ -32,12 +32,12 @@ pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, Instruction
         } => {
             let params: Result<Vec<f64>, EvaluationError> = parameters
                 .iter()
-                .map(|p| {
-                    match p.to_owned().evaluate_to_complex(&HashMap::new()) {
+                .map(
+                    |p| match p.to_owned().evaluate_to_complex(&HashMap::new()) {
                         Ok(c) => Ok(c.re),
                         Err(e) => Err(e),
-                    }
-                })
+                    },
+                )
                 .collect();
             let qubits: Result<Vec<_>, _> = qubits
                 .iter()
@@ -54,11 +54,11 @@ pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, Instruction
 
 #[cfg(test)]
 pub mod test {
-    use crate::matrix::{instruction_matrix, InstructionMatrixError};
-    use quil::instruction::{Instruction, Qubit};
     use crate::gates::QGate;
+    use crate::matrix::{instruction_matrix, InstructionMatrixError};
     use quil::expression::Expression;
     use quil::expression::Expression::Address;
+    use quil::instruction::{Instruction, Qubit};
 
     #[test]
     pub fn blah() {
@@ -66,11 +66,11 @@ pub mod test {
             name: "RX".to_string(),
             parameters: vec![Expression::Variable("yo".to_string())],
             qubits: vec![Qubit::Variable("a".to_string()), Qubit::Fixed(1)],
-            modifiers: vec![]
+            modifiers: vec![],
         };
         match instruction_matrix(instruction) {
             Ok(_) => {}
-            Err(e) => println!("{:?}", e)
+            Err(e) => println!("{:?}", e),
         }
     }
 }
