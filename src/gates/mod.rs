@@ -3,17 +3,15 @@ pub mod standard;
 use ndarray::{Array, Array2};
 use num::complex::Complex64;
 
-use std::convert::TryInto;
-
 use crate::gates::standard::{ccnot, cnot, cz, h, i, rx, ry, rz, swap, x, z};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct QGate {
     matrix: Array2<Complex64>,
-    qubits: Vec<u64>,
+    qubits: Vec<usize>,
 }
 
-pub fn gate_matrix(name: String, params: Vec<f64>, qubits: Vec<u64>) -> QGate {
+pub fn gate_matrix(name: String, params: Vec<f64>, qubits: Vec<usize>) -> QGate {
     match name.as_str() {
         "I" => i(qubits[0]),
         "X" => x(qubits[0]),
@@ -35,16 +33,17 @@ pub fn gate_matrix(name: String, params: Vec<f64>, qubits: Vec<u64>) -> QGate {
 // TODO Likewise, an array type which is both square and each dimension is 2^n
 
 impl QGate {
-    fn lift_adjacent(&self, i: u64, n_qubits: u64) -> Array2<Complex64> {
-        let gate_size = (self.matrix.shape()[0] as f64).log2() as u64;
-        let bottom = Array::eye(2u64.pow(i.try_into().unwrap()).try_into().unwrap());
+    fn lift_adjacent(&self, i: usize, n_qubits: usize) -> Array2<Complex64> {
+        let gate_size = self.qubits.len();
+        let n = num::pow(2, i);
+        let bottom = Array::eye(n);
         let top =
             Array::eye(2u64.pow((n_qubits as u32) - (i as u32) - (gate_size as u32)) as usize);
 
         kron(&top, &kron(&self.matrix, &bottom))
     }
 
-    pub fn lift(&self, n_qubits: u64) -> Array2<Complex64> {
+    pub fn lift(&self, n_qubits: usize) -> Array2<Complex64> {
         match self.qubits.len().cmp(&2) {
             std::cmp::Ordering::Less => self.lift_adjacent(self.qubits[0], n_qubits),
             std::cmp::Ordering::Equal => {
@@ -74,10 +73,10 @@ fn conj(arr: Array2<Complex64>) -> Array2<Complex64> {
 /// Creates a permutation matrix that moves the Hilbert space for qubit `i` into
 /// a position adjacent to that of qubit `j`.
 fn juxtaposing_permutation_matrix(
-    j: u64,
-    k: u64,
-    n_qubits: u64,
-) -> (Array2<Complex64>, Vec<u64>, u64) {
+    j: usize,
+    k: usize,
+    n_qubits: usize,
+) -> (Array2<Complex64>, Vec<usize>, usize) {
     let mut permutation = Array::eye(2u64.pow(n_qubits as u32) as usize);
     let mut new_q_map = (0..n_qubits).collect();
 
