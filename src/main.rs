@@ -57,12 +57,14 @@ fn run(cli: Cli) -> Result<()> {
     println!();
     println!("{:?}", vm);
 
-    println!("Classical memory:");
-    println!();
-    vm.memory
-        .iter()
-        .sorted_by_key(|x| x.0)
-        .for_each(|(mref, data)| println!("{}[0..{}]:\t {:?}", mref, data.len(), data));
+    if vm.memory.len() > 0 {
+        println!("Classical memory:");
+        println!();
+        vm.memory
+            .iter()
+            .sorted_by_key(|x| x.0)
+            .for_each(|(mref, data)| println!("{}[0..{}]:\t {:?}", mref, data.len(), data));
+    }
 
     Ok(())
 }
