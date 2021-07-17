@@ -56,10 +56,8 @@ pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, Instruction
 
 #[cfg(test)]
 pub mod test {
-    use crate::gates::QGate;
-    use crate::matrix::{instruction_matrix, InstructionMatrixError};
+    use crate::matrix::instruction_matrix;
     use quil::expression::Expression;
-    use quil::expression::Expression::Address;
     use quil::instruction::{Instruction, Qubit};
 
     #[test]
