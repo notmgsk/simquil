@@ -94,11 +94,12 @@ mod tests {
     use ndarray::arr2;
     use pretty_assertions::assert_eq;
 
+    use crate::gates::standard::{cnot, x};
     use crate::matrix::{C0, C1};
 
     #[test]
     fn lift_1q() {
-        let gate = super::x(0);
+        let gate = x(0);
         assert_eq!(
             gate.lift_adjacent(0, 2),
             arr2(&[
@@ -109,7 +110,7 @@ mod tests {
             ])
         );
 
-        let gate = super::x(1);
+        let gate = x(1);
         assert_eq!(
             gate.lift_adjacent(1, 2),
             arr2(&[
@@ -128,7 +129,7 @@ mod tests {
 
     #[test]
     fn lift_2q() {
-        let gate = super::cnot(0, 1);
+        let gate = cnot(0, 1);
         assert_eq!(
             gate.lift(2),
             arr2(&[
@@ -139,7 +140,7 @@ mod tests {
             ])
         );
 
-        let gate = super::cnot(1, 0);
+        let gate = cnot(1, 0);
         assert_eq!(
             gate.lift(2),
             arr2(&[
@@ -150,7 +151,7 @@ mod tests {
             ])
         );
 
-        let gate = super::cnot(0, 2);
+        let gate = cnot(0, 2);
         assert_eq!(
             gate.lift(3),
             arr2(&[
@@ -165,7 +166,7 @@ mod tests {
             ])
         );
 
-        let gate = super::cnot(2, 0);
+        let gate = cnot(2, 0);
         assert_eq!(
             gate.lift(3),
             arr2(&[
