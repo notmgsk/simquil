@@ -3,7 +3,7 @@ pub mod standard;
 use ndarray::{Array, Array2};
 use num::complex::Complex64;
 
-use crate::gates::standard::{ccnot, cnot, cz, h, i, rx, ry, rz, swap, x, z};
+use crate::gates::standard::swap;
 
 #[derive(Default, Clone, Debug)]
 pub struct QGate {
@@ -11,34 +11,12 @@ pub struct QGate {
     qubits: Vec<usize>,
 }
 
-pub fn gate_matrix(name: String, params: Vec<f64>, qubits: Vec<usize>) -> QGate {
-    match name.as_str() {
-        "I" => i(qubits[0]),
-        "X" => x(qubits[0]),
-        "Y" => x(qubits[0]),
-        "Z" => z(qubits[0]),
-        "RX" => rx(params[0], qubits[0]),
-        "RY" => ry(params[0], qubits[0]),
-        "RZ" => rz(params[0], qubits[0]),
-        "H" => h(qubits[0]),
-        "CZ" => cz(qubits[0], qubits[1]),
-        "CNOT" => cnot(qubits[0], qubits[1]),
-        "SWAP" => swap(qubits[0], qubits[1]),
-        "CCNOT" => ccnot(qubits[0], qubits[1], qubits[2]),
-        _ => todo!(),
-    }
-}
-
-// TODO Is it possible to define a SquareArray2 type (where dimensions are equal)
-// TODO Likewise, an array type which is both square and each dimension is 2^n
-
 impl QGate {
     fn lift_adjacent(&self, i: usize, n_qubits: usize) -> Array2<Complex64> {
         let gate_size = self.qubits.len();
         let n = num::pow(2, i);
         let bottom = Array::eye(n);
-        let top =
-            Array::eye(2u64.pow((n_qubits as u32) - (i as u32) - (gate_size as u32)) as usize);
+        let top = Array::eye(2u64.pow((n_qubits - i - gate_size) as u32) as usize);
 
         kron(&top, &kron(&self.matrix, &bottom))
     }
