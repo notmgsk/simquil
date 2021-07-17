@@ -15,17 +15,12 @@ use quil::{
     program::Program,
 };
 
-use vm::VM;
-
-pub mod gates;
-pub mod matrix;
-pub mod vm;
-pub mod wavefunction;
+use simquil::vm::{VMError, VM};
 
 #[derive(Error, Debug)]
 pub enum SimquilError {
     #[error("Failed to execute program")]
-    ExecutionError(#[from] vm::VMError),
+    ExecutionError(#[from] VMError),
     #[error("Failed to read program")]
     ReadProgramError(#[from] io::Error),
 }
