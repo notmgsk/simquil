@@ -24,8 +24,10 @@ pub mod wavefunction;
 
 #[derive(Error, Debug)]
 pub enum SimquilError {
-    #[error("failed to execute program")]
+    #[error("Failed to execute program")]
     ExecutionError(#[from] vm::VMError),
+    #[error("Failed to read program")]
+    ReadProgramError(#[from] io::Error),
 }
 
 #[derive(StructOpt)]
@@ -35,11 +37,13 @@ struct Cli {
 
 fn run(cli: Cli) -> Result<()> {
     let quil = match cli.quil_file {
-        Some(path) => fs::read_to_string(path).expect("bad read"),
+        Some(path) => fs::read_to_string(path).map_err(SimquilError::ReadProgramError)?,
         None => {
             let mut stdin = io::stdin();
             let mut buf = String::new();
-            stdin.read_to_string(&mut buf).expect("bad read from stdin");
+            stdin
+                .read_to_string(&mut buf)
+                .map_err(SimquilError::ReadProgramError)?;
             buf
         }
     };
@@ -57,12 +61,14 @@ fn run(cli: Cli) -> Result<()> {
     println!();
     println!("{:?}", vm);
 
-    println!("Classical memory:");
-    println!();
-    vm.memory
-        .iter()
-        .sorted_by_key(|x| x.0)
-        .for_each(|(mref, data)| println!("{}[0..{}]:\t {:?}", mref, data.len(), data));
+    if !vm.memory.is_empty() {
+        println!("Classical memory:");
+        println!();
+        vm.memory
+            .iter()
+            .sorted_by_key(|x| x.0)
+            .for_each(|(mref, data)| println!("{}[0..{}]:\t {:?}", mref, data.len(), data));
+    }
 
     Ok(())
 }
