@@ -61,7 +61,7 @@ fn run(cli: Cli) -> Result<()> {
     println!();
     println!("{:?}", vm);
 
-    if vm.memory.len() > 0 {
+    if !vm.memory.is_empty() {
         println!("Classical memory:");
         println!();
         vm.memory
