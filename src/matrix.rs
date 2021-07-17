@@ -2,7 +2,7 @@ use num::complex::Complex64;
 use std::collections::HashMap;
 use thiserror::Error;
 
-use crate::gates::{gate_matrix, QGate};
+use crate::gates::{standard::gate_matrix, standard::GateError, QGate};
 
 use crate::matrix::InstructionMatrixError::{InvalidInstruction, InvalidQubit};
 use quil::expression::EvaluationError;
@@ -14,12 +14,14 @@ pub const I1: Complex64 = Complex64::new(0.0, 1.0);
 
 #[derive(Error, Debug)]
 pub enum InstructionMatrixError {
-    #[error("invalid parameter")]
+    #[error("Invalid parameter")]
     InvalidParameter(#[from] EvaluationError),
-    #[error("cannot create matrix from gate with variable qubit {0}")]
+    #[error("Cannot create matrix from gate with variable qubit {0}")]
     InvalidQubit(String),
-    #[error("cannot create matrix from non-gate instruction {0}")]
+    #[error("Cannot create matrix from non-gate instruction {0}")]
     InvalidInstruction(String),
+    #[error("Gate matrix failed")]
+    InvalidGateError(#[from] GateError),
 }
 
 pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, InstructionMatrixError> {
@@ -30,7 +32,7 @@ pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, Instruction
             qubits,
             modifiers: _,
         } => {
-            let params: Result<Vec<f64>, EvaluationError> = parameters
+            let params: Vec<f64> = parameters
                 .iter()
                 .map(
                     |p| match p.to_owned().evaluate_to_complex(&HashMap::new()) {
@@ -38,15 +40,15 @@ pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, Instruction
                         Err(e) => Err(e),
                     },
                 )
-                .collect();
-            let qubits: Result<Vec<_>, _> = qubits
+                .collect::<Result<Vec<_>, _>>()?;
+            let qubits: Vec<usize> = qubits
                 .iter()
                 .map(|q| match q {
                     Qubit::Fixed(i) => Ok(*i as usize),
                     Qubit::Variable(q) => Err(InvalidQubit(q.clone())),
                 })
-                .collect();
-            Ok(gate_matrix(name, params?, qubits?))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(gate_matrix(name, params, qubits)?)
         }
         instruction => Err(InvalidInstruction(instruction.to_string())),
     }
