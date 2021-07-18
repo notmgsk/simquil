@@ -16,7 +16,7 @@
         "preset": "eslint",
         "releaseRules": [
           {"tag": "Breaking", "release": "minor"},
-          {"tag": "Update", "release": "patch"},
+          {"tag": "Update", "release": "minor"},
           {"tag": "Fix", "release": "patch"},
           {"tag": "New", "release": "patch"},
           {"tag": "Refactor", "release":  "patch"},
