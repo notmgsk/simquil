@@ -7,8 +7,8 @@ use crate::gates::standard::swap;
 
 #[derive(Default, Clone, Debug)]
 pub struct QGate {
-    matrix: Array2<Complex64>,
-    qubits: Vec<usize>,
+    pub matrix: Array2<Complex64>,
+    pub qubits: Vec<usize>,
 }
 
 impl QGate {
