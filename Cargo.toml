@@ -12,9 +12,6 @@ path = "src/main.rs"
 name = "simquil"
 path = "src/lib.rs"
 
-[profile.release]
-debug = true
-
 [dependencies]
 structopt = "0.3.13"
 quil = { git = "https://github.com/rigetti/quil-rust.git", branch = "derive-error-for-evaluation-error" }
