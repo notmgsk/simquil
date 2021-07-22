@@ -27,6 +27,9 @@ pub enum SimquilError {
 
 #[derive(StructOpt)]
 struct Cli {
+    /// Don't display the wavefunction after simulation
+    #[structopt(long)]
+    hide_wavefunction: bool,
     quil_file: Option<String>,
 }
 
@@ -52,9 +55,11 @@ fn run(cli: Cli) -> Result<()> {
     let mut vm = VM::new(max_qubits_needed, program);
 
     vm.run().map_err(SimquilError::ExecutionError)?;
-    println!("Wavefunction amplitudes:");
-    println!();
-    println!("{:?}", vm);
+    if !cli.hide_wavefunction {
+        println!("Wavefunction amplitudes:");
+        println!();
+        println!("{:?}", vm);
+    }
 
     if !vm.memory.is_empty() {
         println!("Classical memory:");
