@@ -1,6 +1,6 @@
 [package]
 name = "simquil"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Mark Skilbeck <mark.skilbeck@rigetti.com>"]
 edition = "2018"
 
