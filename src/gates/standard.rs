@@ -85,7 +85,7 @@ define_gate!(
 define_gate!(
     cphase,
     [theta],
-    [q],
+    [control, target],
     [
         [C1, C0, C0, C0],
         [C0, C1, C0, C0],
@@ -244,6 +244,12 @@ pub fn gate_matrix(name: String, params: Vec<f64>, qubits: Vec<usize>) -> Result
             let control1 = qubits.get(1).ok_or(GateError::GateMatrixMissingQubit)?;
             let target = qubits.get(1).ok_or(GateError::GateMatrixMissingQubit)?;
             Ok(ccnot(*control0, *control1, *target))
+        }
+        "CPHASE" => {
+            let control = qubits.get(0).ok_or(GateError::GateMatrixMissingQubit)?;
+            let target = qubits.get(1).ok_or(GateError::GateMatrixMissingQubit)?;
+            let theta = params.get(0).ok_or(GateError::GateMatrixMissingParameter)?;
+            Ok(cphase(*theta, *control, *target))
         }
         _ => Err(GateError::UnknownGate(name)),
     }
