@@ -7,15 +7,25 @@ use crate::gates::{standard::gate_matrix, standard::GateError, QGate};
 use crate::matrix::InstructionMatrixError::{InvalidInstruction, InvalidQubit};
 use quil::expression::EvaluationError;
 use quil::instruction::{Instruction, Qubit};
+use std::fmt::Formatter;
 
 pub const C0: Complex64 = Complex64::new(0.0, 0.0);
 pub const C1: Complex64 = Complex64::new(1.0, 0.0);
 pub const I1: Complex64 = Complex64::new(0.0, 1.0);
 
 #[derive(Error, Debug)]
+pub struct ParameterEvaluationError(EvaluationError);
+
+impl std::fmt::Display for ParameterEvaluationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error when evaluating parameter: {:?}", self.0)
+    }
+}
+
+#[derive(Error, Debug)]
 pub enum InstructionMatrixError {
     #[error("Invalid parameter")]
-    InvalidParameter(#[from] EvaluationError),
+    InvalidParameter(#[from] ParameterEvaluationError),
     #[error("Cannot create matrix from gate with variable qubit {0}")]
     InvalidQubit(String),
     #[error("Cannot create matrix from non-gate instruction {0}")]
@@ -37,7 +47,7 @@ pub fn instruction_matrix(instruction: Instruction) -> Result<QGate, Instruction
                 .map(
                     |p| match p.to_owned().evaluate_to_complex(&HashMap::new()) {
                         Ok(c) => Ok(c.re),
-                        Err(e) => Err(e),
+                        Err(e) => Err(ParameterEvaluationError(e)),
                     },
                 )
                 .collect::<Result<Vec<_>, _>>()?;
