@@ -625,11 +625,11 @@ impl VM {
     }
 
     /// Run the program in its entirety
-    pub fn run(&mut self) -> Result<bool, VMError> {
+    pub fn run(&mut self) -> Result<(), VMError> {
         loop {
             let done = self.step()?;
             if done {
-                return Ok(true);
+                return Ok(());
             }
         }
     }
