@@ -11,6 +11,7 @@ path = "src/main.rs"
 [lib]
 name = "simquil"
 path = "src/lib.rs"
+crate-type = ["cdylib"]
 
 [dependencies]
 structopt = "0.3.13"
@@ -26,6 +27,7 @@ log = "0.4.14"
 env_logger = "0.9.0"
 thiserror = "1.0.24"
 anyhow = "1.0.39"
+pyo3 = { version = "0.14.1", features = ["extension-module"] }
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
